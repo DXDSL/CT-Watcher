@@ -5,7 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "./Hardware/STA/Wifi_STA.h"
+#include "Wifi_STA.h"
 #include "mqtt_client.h"
 #include "DHT11.h"
 

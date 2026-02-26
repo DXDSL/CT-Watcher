@@ -564,6 +564,16 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
+  include("C:/Users/DSL/Desktop/ctwing/build/esp-idf/espressif__esp_audio_codec/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/DSL/Desktop/ctwing/build/esp-idf/chmorgan__esp-file-iterator/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
   include("C:/Users/DSL/Desktop/ctwing/build/esp-idf/main/cmake_install.cmake")
 endif()
 

@@ -1,0 +1,32 @@
+dependencies:
+  chmorgan/esp-file-iterator:
+    component_hash: 327091394b9ef5c2cd395a960ab70ae64479e0a8831cbd9925e38895fad93719
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.1.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.0.0
+  espressif/esp_audio_codec:
+    component_hash: af4663830bc73eca58febcc34a976d003465e78ed57458aa00a14b231e392ca1
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.4'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 2.4.1
+  idf:
+    source:
+      type: idf
+    version: 5.5.2
+direct_dependencies:
+- chmorgan/esp-file-iterator
+- espressif/esp_audio_codec
+- idf
+manifest_hash: 9a95f3793ed4814b3d4c6655e735d9839c07de67b6385999b110f49c3609c974
+target: esp32s3
+version: 2.0.0
