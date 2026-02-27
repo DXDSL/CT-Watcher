@@ -1,15 +1,15 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h" // 确保引入了事件组头文件
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
 #include "bsp_Audio.h"
 #include "bsp_HumanIR.h"
-#include "wifi_sta.h"
+#include "mqtt.h"
 
 static const char *TAG = "MAIN";
-
 
 // 定义音乐路径和人体传感器引脚
 #define MP3_FILE_PATH "/spiffs/people.mp3"
@@ -30,7 +30,7 @@ void pir_audio_task(void *pvParameters)
             play_mp3(MP3_FILE_PATH);
             ESP_LOGI(TAG, "Playback finished. Waiting for next trigger...");
             
-            // 播放完毕后强制延时 1 秒，防止传感器着重复播放
+            // 播放完毕后强制延时 1 秒，防止传感器重复触发
             vTaskDelay(pdMS_TO_TICKS(1000)); 
         }
 
@@ -48,8 +48,12 @@ void ESP32_wifi_event_callback(WIFI_EV_e status)
     if (status == WIFI_CONNECTED) {
         ESP_LOGI(TAG, "🟢 WiFi Connected successfully! (WiFi连接成功，已获取IP)");
         
-        // 以后你的 MQTT 初始化就可以写在这里
-        // mqtt_app_start(); 
+        // 通知 mqtt.c 网络已就绪，置位事件标志
+        wifi_event_handler(status);
+
+        // 启动 MQTT
+        ESP_LOGI(TAG, "WiFi ready! Starting MQTT...");
+        mqtt_start();
     }
 }
 
@@ -62,6 +66,13 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
+    // 在初始化 WiFi 和 MQTT 之前，必须先创建事件组！
+    s_wifi_ev = xEventGroupCreate();
+    if (s_wifi_ev == NULL) {
+        ESP_LOGE(TAG, "Failed to create WiFi event group!");
+        return;
+    }
+
     // 2. 挂载 SPIFFS
     ESP_LOGI(TAG, "Mounting SPIFFS...");
     if (bsp_spiffs_mount() != ESP_OK) {
@@ -69,15 +80,20 @@ void app_main(void)
         return;
     }
 
+    // 3. 初始化网络模块
+    ESP_LOGI(TAG, "Initializing WiFi...");
     wifi_sta_init(ESP32_wifi_event_callback); // 初始化 WIFI 连接
 
-    // 3. 初始化人体感应传感器
+    // 4. 初始化人体感应传感器
     HumanIR_Init();
 
-    // 4. 初始化 I2S 并注册解码器
+    // 5. 初始化 I2S 并注册解码器
     ESP_LOGI(TAG, "Initializing I2S...");
     i2s_init();
 
-    // 5. 创建任务，分配 8192 字节的栈空间（MP3 解码非常消耗内存栈）
+    // 6. 创建检测传感器并播放音频的任务
     xTaskCreate(pir_audio_task, "pir_audio_task", 8192, NULL, 5, NULL);
+
+    // 7. 创建 MQTT 数据循环上报任务 
+    xTaskCreate(DataReport_Task, "DataReport_Task", 4096, NULL, 5, NULL);
 }

@@ -1,11 +1,7 @@
 #ifndef __MQTT_H__
 #define __MQTT_H__
 
-#include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "Wifi_STA.h"
+#include "wifi_sta.h"
 #include "mqtt_client.h"
 #include "DHT11.h"
 
@@ -16,5 +12,6 @@ extern EventGroupHandle_t s_wifi_ev;
 void mqtt_start(void);
 void wifi_event_handler(WIFI_EV_e ev);
 void DataReport_Task(void *pvParameters);
+void mqtt_publish_alarm(void);
 
 #endif

@@ -1,15 +1,15 @@
 #include "Mqtt.h"
 
-static const char* TAG = "MATT";
+static const char* TAG = "MQTT";
 
-#define MQTT_ADDRESS "mqtt://2000506597.non-nb.ctwing.cn"           // MQTT连接地址
-#define MQTT_PORT 1883                                              // MQTT连接端口号
-#define MQTT_CLIENT "171213670"                                     // Client ID（设备唯一，大家最好自行改一下）
-#define MQTT_USERNAME "esp32"                                       // MQTT用户名
-#define MQTT_PASSWORD "ggtcllb0098eGGd2wmn2vSgqOXlLSLYIIoHnfmYX1N4" // MQTT密码
+#define MQTT_USERNAME "17291772"                                    // 修改为平台上的"产品ID"
+#define MQTT_CLIENT "172917721"                                     // 请在平台"设备列表"里找到具体的那台设备，复制它的"设备ID"填在这里
+#define MQTT_ADDRESS "mqtt://2000506597.non-nb.ctwing.cn"          // 修改为平台上的"产品ID"对应的"连接地址"
+#define MQTT_PORT   1883
+#define MQTT_PASSWORD "04d85_5O6kRYt6thxVwRH2fo5nw52nu_7uRiC4jqNe4"            // 特征串
 
-#define MQTT_data_report_TOPIC "data_report"             // 测试用的,推送消息主题
-#define MQTT_SUBSCRIBE_TOPIC "air_conditioner_onoff_cmd" // 测试用的,需要订阅的主题
+#define MQTT_data_report_TOPIC      "data_report"             
+#define MQTT_SUBSCRIBE_TOPIC        "device_control" 
 
 EventGroupHandle_t s_wifi_ev = NULL;
 
@@ -30,7 +30,7 @@ static void aliot_mqtt_event_handler(void *event_handler_arg,
                                      void *event_data)
 {
     esp_mqtt_event_handle_t event = event_data;
-    esp_mqtt_client_handle_t client = event->client;
+    // esp_mqtt_client_handle_t client = event->client;
 
     // your_context_t *context = event->context;
     switch ((esp_mqtt_event_id_t)event_id)
@@ -113,12 +113,20 @@ void DataReport_Task(void *pvParameters)
         {
             snprintf(mqtt_pub_buff, 128, "{\"temperature_data\":%d,\"humidity_data\":%d}", Temp, Humi);
             // snprintf(mqtt_pub_buff, 128, "{\"temperature_data\":%d}", Temp);
-            // ESP_LOGI(TAG, "temp->%i.%i C     hum->%i%%", temp / 10, temp % 10, hum);
-            // ESP_LOGI(TAG,"%s",mqtt_pub_buff);
             esp_mqtt_client_publish(s_mqtt_client, MQTT_data_report_TOPIC,
                                     mqtt_pub_buff, strlen(mqtt_pub_buff), 1, 0);
         }
 
         vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+
+void mqtt_publish_alarm(void) 
+{
+    if (s_is_mqtt_connected && s_mqtt_client != NULL) 
+    {
+        char *alarm_json = "{\"motion_detected\":1}"; // 构造 JSON 告警数据
+        esp_mqtt_client_publish(s_mqtt_client, MQTT_data_report_TOPIC, alarm_json, strlen(alarm_json), 1, 0);
     }
 }
