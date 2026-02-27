@@ -6,8 +6,10 @@
 #include "driver/gpio.h"
 #include "bsp_Audio.h"
 #include "bsp_HumanIR.h"
+#include "wifi_sta.h"
 
 static const char *TAG = "MAIN";
+
 
 // 定义音乐路径和人体传感器引脚
 #define MP3_FILE_PATH "/spiffs/people.mp3"
@@ -26,7 +28,6 @@ void pir_audio_task(void *pvParameters)
             
             // 播放音乐（此函数现在会一直阻塞直到播放完毕，中途不会死机）
             play_mp3(MP3_FILE_PATH);
-            
             ESP_LOGI(TAG, "Playback finished. Waiting for next trigger...");
             
             // 播放完毕后强制延时 1 秒，防止传感器着重复播放
@@ -38,9 +39,23 @@ void pir_audio_task(void *pvParameters)
     }
 }
 
+// ==========================================
+// 定义 WiFi 事件回调函数
+// 当底层获取到 IP 地址后，会调用这个函数
+// ==========================================
+void ESP32_wifi_event_callback(WIFI_EV_e status)
+{
+    if (status == WIFI_CONNECTED) {
+        ESP_LOGI(TAG, "🟢 WiFi Connected successfully! (WiFi连接成功，已获取IP)");
+        
+        // 以后你的 MQTT 初始化就可以写在这里
+        // mqtt_app_start(); 
+    }
+}
+
 void app_main(void)
 {
-    // 1. 初始化 NVS (为了系统的稳定性，强烈建议加上)
+    // 1. 初始化 NVS
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -54,7 +69,9 @@ void app_main(void)
         return;
     }
 
-    // 3. 初始化人体感应传感器 (将引脚配置为带上拉的输入模式，防干扰)
+    wifi_sta_init(ESP32_wifi_event_callback); // 初始化 WIFI 连接
+
+    // 3. 初始化人体感应传感器
     HumanIR_Init();
 
     // 4. 初始化 I2S 并注册解码器
@@ -63,6 +80,4 @@ void app_main(void)
 
     // 5. 创建任务，分配 8192 字节的栈空间（MP3 解码非常消耗内存栈）
     xTaskCreate(pir_audio_task, "pir_audio_task", 8192, NULL, 5, NULL);
-    
-
 }

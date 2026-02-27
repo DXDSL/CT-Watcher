@@ -1,21 +1,21 @@
 idf_component_register(
     SRCS 
         "main.c"
-        "Hardware/STA/Wifi_STA.c"
+        "NETWORK/STA/Wifi_STA.c"
         "Hardware/DHT11/DHT11.c"
         "Hardware/OLED/oled.c"
-        "MQTT/Mqtt.c"
+        "NETWORK/MQTT/Mqtt.c"
         "Hardware/HumanIR/bsp_HumanIR.c"
         "AUDIO/bsp_Audio.c"
 
     INCLUDE_DIRS 
         "."
-        "./Hardware/STA"
-        "./Hardware/DHT11"
-        "./Hardware/OLED"
-        "./Hardware/HumanIR"
-        "./AUDIO"
-        "./MQTT"
+        "NETWORK/STA"
+        "Hardware/DHT11"
+        "Hardware/OLED"
+        "Hardware/HumanIR"
+        "AUDIO"
+        "NETWORK/MQTT"
 
     REQUIRES 
         esp_audio_codec
