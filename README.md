@@ -1,35 +1,35 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- | -------- |
+| 支持的目标芯片 | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ---------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- | -------- |
 
-# _Sample project_
+# _示例项目_
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+(请查看上级 'examples' 目录中的 README.md 文件，以了解有关示例的更多信息。)
 
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+这是最简单的可构建示例。该示例由命令 `idf.py create-project`
+该命令将项目复制到用户指定的路径并设置其名称。有关更多信息，请查看[文档页面](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
 
 
 
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
+## 如何使用示例
+我们建议用户使用该示例作为新项目的模板。
+推荐的方法是按照[文档页面](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)上的说明进行操作。
 
-## Example folder contents
+## 示例文件夹内容
 
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
+项目 **sample_project** 包含一个 C 语言源文件 [main.c](main/main.c)。该文件位于文件夹 [main](main) 中。
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
+ESP-IDF 项目使用 CMake 构建。项目构建配置包含在 `CMakeLists.txt`
+文件中，这些文件提供一组指令和说明，描述项目的源文件和目标
+(可执行文件、库或两者)。
 
-Below is short explanation of remaining files in the project folder.
+以下是项目文件夹中剩余文件的简短说明。
 
 ```
 ├── CMakeLists.txt
 ├── main
 │   ├── CMakeLists.txt
 │   └── main.c
-└── README.md                  This is the file you are currently reading
+└── README.md                  这是你当前正在阅读的文件
 ```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
+此外，示例项目还包含 Makefile 和 component.mk 文件，用于旧的基于 Make 的构建系统。
+在使用 CMake 和 idf.py 构建时不使用或不需要它们。

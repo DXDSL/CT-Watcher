@@ -1,0 +1,2 @@
+source E:/File/MCU/ESP32/CT-Watcher/build/gdbinit/symbols
+source E:/File/MCU/ESP32/CT-Watcher/build/gdbinit/connect

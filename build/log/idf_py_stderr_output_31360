@@ -1,0 +1,4 @@
+Command: ninja confserver
+fatal: bad config line 2 in file C:/esp/v5.5.2/esp-idf/.git/modules/components/bootloader/subproject/components/micro-ecc/micro-ecc/config
+fatal: bad config line 2 in file C:/esp/v5.5.2/esp-idf/.git/modules/components/openthread/openthread/config
+Server running, waiting for requests on stdin...

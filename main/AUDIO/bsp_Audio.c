@@ -45,30 +45,46 @@ esp_err_t bsp_spiffs_mount(void)
 
 /**
  * @brief 初始化 I2S 并注册解码器
+ * 
+ * 该函数执行以下初始化步骤：
+ * 1. 创建 I2S 通道配置，设置为主机模式
+ * 2. 新建 I2S 报文通道，用于音频数据发送
+ * 3. 配置 I2S 标准模式（采样率、位宽、立体声等）
+ * 4. 配置 GPIO 脚位（BCLK、WS、DOUT）
+ * 5. 初始化 I2S 通道并启用
+ * 6. 注册所有默认的音频解码器
  */
 void i2s_init(void)
 {
+    // 创建 I2S 通道配置，使用 I2S_NUM_0，设置为主机模式（MASTER）
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
+    // 根据配置创建新的 I2S 发送通道，存储在全局 tx_chan 中
     ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &tx_chan, NULL));
 
+    // 配置 I2S 标准模式的具体参数
     i2s_std_config_t std_cfg = {
+        // 时钟配置：采样率为 44100 Hz，适用于标准音频播放
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(44100),
+        // 时隙配置：16 位宽，立体声模式（L/R 两个声道）
         .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(
             I2S_DATA_BIT_WIDTH_16BIT,
             I2S_SLOT_MODE_STEREO),
+        // GPIO 脚位配置
         .gpio_cfg = {
-            .bclk = I2S_BCLK,
-            .ws   = I2S_WS,
-            .dout = I2S_DOUT,
-            .din  = I2S_GPIO_UNUSED,
-            .mclk = I2S_GPIO_UNUSED,
+            .bclk = I2S_BCLK,      // 比特时钟脚：GPIO 5
+            .ws   = I2S_WS,        // 字选择脚（帧同步）：GPIO 6
+            .dout = I2S_DOUT,      // 数据输出脚：GPIO 7
+            .din  = I2S_GPIO_UNUSED,   // 数据输入脚：未使用（仅发送）
+            .mclk = I2S_GPIO_UNUSED,   // 主时钟脚：未使用
         },
     };
 
+    // 使用标准模式初始化 I2S 通道（应用上述配置）
     ESP_ERROR_CHECK(i2s_channel_init_std_mode(tx_chan, &std_cfg));
+    // 启用 I2S 通道，使其开始工作
     ESP_ERROR_CHECK(i2s_channel_enable(tx_chan));
 
-    // 【关键修复】注册所有默认的音频解码器 (包含 MP3)
+    // 注册所有默认的音频解码器库 (包含 MP3、WAV 等常见格式)
     esp_audio_dec_register_default();
     ESP_LOGI(TAG, "Audio decoders registered successfully");
 }

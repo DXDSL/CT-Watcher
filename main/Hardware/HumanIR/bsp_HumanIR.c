@@ -30,14 +30,14 @@ void delay_ms(unsigned int ms)
 ******************************************************************/
 void HumanIR_Init(void)
 {
-    gpio_config_t lll_config = {
+    gpio_config_t io_config = {
         .pin_bit_mask = (1ULL<<HUMANIR_PIN),     //配置引脚
-        .mode =GPIO_MODE_INPUT,                   //输入模式
-        .pull_up_en = GPIO_PULLUP_DISABLE,         //不使能上拉
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,    //不使能下拉
-        .intr_type = GPIO_INTR_DISABLE            //不使能引脚中断
+        .mode =GPIO_MODE_INPUT,                  //输入模式
+        .pull_up_en = GPIO_PULLUP_ENABLE,        //使能上拉
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,   //不使能下拉
+        .intr_type = GPIO_INTR_DISABLE           //不使能引脚中断
     };
-    gpio_config(&lll_config);
+    gpio_config(&io_config);
 }
 
 /******************************************************************
