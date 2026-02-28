@@ -17,7 +17,7 @@ ENV/
 # ============================================================================
 build/                 
 sdkconfig              
-sdkconfig.old          
+sdkconfig.old
 *.bin                  
 *.elf                  
 *.map                  

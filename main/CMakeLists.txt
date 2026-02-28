@@ -4,7 +4,7 @@ idf_component_register(
         "NETWORK/STA/Wifi_STA.c"
         "Hardware/DHT11/DHT11.c"
         "Hardware/OLED/oled.c"
-        "NETWORK/MQTT/Mqtt.c"
+        "NETWORK/MQTT/mqtt.c"
         "Hardware/HumanIR/bsp_HumanIR.c"
         "AUDIO/bsp_Audio.c"
 

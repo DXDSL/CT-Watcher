@@ -117,9 +117,9 @@ void OLED_WR_Byte(u8 dat, u8 mode)
 {
 
 	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-	int err = 0;
+	// int err;
 	i2c_master_start(cmd);
-	err = i2c_master_write_byte(cmd, 0x78, ACK_CHECK_EN);
+	esp_err_t err = i2c_master_write_byte(cmd, 0x78, ACK_CHECK_EN);
 
 	if (mode)
 	{

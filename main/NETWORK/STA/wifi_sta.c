@@ -14,10 +14,9 @@
 #include "esp_log.h"
 
 // 请根据实际环境修改为目标 WiFi 的 SSID 和密码用于连接测试
-// 例如：
 // #define DEFAULT_WIFI_SSID "MySSID"
 // #define DEFAULT_WIFI_PASSWORD "MyPassword"
-#define DEFAULT_WIFI_SSID "DSL"
+#define DEFAULT_WIFI_SSID "QWRT"
 #define DEFAULT_WIFI_PASSWORD "13342564606"
 
 // 日志标签
