@@ -1,4 +1,4 @@
-# CT-Watcher (智能安防-人体行为感知器)
+# CT-Watcher
 
 ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.2.2-blue.svg)
 ![Target](https://img.shields.io/badge/Target-ESP32--S3-orange.svg)
@@ -13,7 +13,7 @@
 
 ## ✨ 核心亮点 (Key Features)
 
-* 🔗 **双模混合配网 (无硬编码)**：彻底告别修改源码！集成大厂级配网方案，支持使用官方 APP 通过 **蓝牙 (BLE)** 无感配置 Wi-Fi。连网后后台静默拉起 **Web 服务器**，通过精美局域网网页动态下发 MQTT 参数，断网自动重试与无缝唤醒，配置永久加密保存于 NVS 闪存。
+* 🔗 **双模混合配网 (无硬编码)**：支持使用官方 APP 通过 **蓝牙 (BLE)** 无感配置 Wi-Fi。连网后后台静默拉起 **Web 服务器**，通过局域网网页动态下发 MQTT 参数，断网自动重试与无缝唤醒，配置永久加密保存于 NVS 闪存。
 * 📡 **CTWing 云端互联**：基于 MQTT 协议接入电信平台（一机一密），支持心跳包机制、环境数据突变即时上报、以及云端指令实时下发。
 * 🏃‍♂️ **人体行为感知**：集成 PIR 人体红外传感器，精准检测防区入侵行为。
 * 🔊 **高保真语音告警**：内置 `esp_audio_codec` 解码库，结合 SPIFFS 独立分区与 MAX98357A (I2S) 功放，实现无卡顿的本地 MP3 语音/警报播报。
@@ -60,7 +60,7 @@
 ## 🚀 快速上手 (Getting Started)
 
 ### 1. 编译与烧录
-本项目**无需在代码中修改任何 Wi-Fi 或 MQTT 密码**。直接编译烧录即可！
+本项目**无需在代码中修改任何 Wi-Fi 或 MQTT 密码**,直接编译烧录即可。
 
 由于项目中包含 `people.mp3` 本地语音文件，必须启用自定义分区表：
 1. 在终端运行：`idf.py menuconfig`
@@ -73,7 +73,7 @@ idf.py flash monitor
 
 ### 2. 第一步：蓝牙无感配网 (连接 Wi-Fi)
 
-1. 下载并打开手机 APP：**ESP BLE Provisioning** (各大应用商店或 App Store 均可下载)。
+1. 下载并打开手机 APP：**ESP BLE Provisioning**
 2. 点击 `Provision Device` -> `BLE`。
 3. 找到并连接名为 **`CT-Watcher`** 的蓝牙设备。
 4. 提示输入 Pop 验证码时，输入：**`DSL12345`**。
