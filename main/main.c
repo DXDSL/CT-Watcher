@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/event_groups.h" // 确保引入了事件组头文件
+#include "freertos/event_groups.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
@@ -20,10 +20,10 @@ void pir_audio_task(void *pvParameters)
     ESP_LOGI(TAG, "PIR Sensor Task started. Waiting for motion...");
 
     while (1) {
-        // 读取 人体传感器 的状态 (0 为有人，1 为无人)
+        // 读取 人体传感器 的状态 (1 为有人，0 为无人)
         bool pir_state = Get_HumanIR();
 
-        if (pir_state == 0) {
+        if (pir_state == 1) {
             ESP_LOGI(TAG, "Motion Detected! (检测到人) - Starting playback...");
             
             // 播放音乐（此函数现在会一直阻塞直到播放完毕，中途不会死机）
