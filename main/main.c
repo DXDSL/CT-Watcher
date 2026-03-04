@@ -11,6 +11,11 @@
 
 static const char *TAG = "MAIN";
 
+// ================= 全局状态变量定义 =================
+bool is_armed = true;       // 默认上电后开启检测模式
+bool pir_state = false; // 默认没有检测到人
+// ===================================================
+
 // 定义音乐路径和人体传感器引脚
 #define MP3_FILE_PATH "/spiffs/people.mp3"
 
@@ -21,14 +26,22 @@ void pir_audio_task(void *pvParameters)
 
     while (1) {
         // 读取 人体传感器 的状态 (1 为有人，0 为无人)
-        bool pir_state = Get_HumanIR();
+        pir_state = Get_HumanIR();
 
-        if (pir_state == 1) {
+        // 同时判断 "是否处于检测模式" AND "是否检测到人"
+        if (is_armed == true && pir_state == 1) {
             ESP_LOGI(TAG, "Motion Detected! (检测到人) - Starting playback...");
             
-            // 播放音乐（此函数现在会一直阻塞直到播放完毕，中途不会死机）
+            // --- 这里可以加入 WS2812B 视觉报警 (可选) ---
+            // Led_SetColor(255, 0, 0); // 亮红灯
+            
+            // 听觉报警：播放音乐（阻塞直到播放完毕）
             play_mp3(MP3_FILE_PATH);
+            
             ESP_LOGI(TAG, "Playback finished. Waiting for next trigger...");
+            
+            // --- 报警结束，恢复正常指示灯 (可选) ---
+            // Led_SetColor(0, 255, 0); // 亮绿灯
             
             // 播放完毕后强制延时 1 秒，防止传感器重复触发
             vTaskDelay(pdMS_TO_TICKS(1000)); 

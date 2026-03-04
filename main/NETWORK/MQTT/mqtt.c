@@ -102,25 +102,74 @@ void wifi_event_handler(WIFI_EV_e ev)
     }
 }
 
+extern bool is_armed;         // 当前是否处于布防模式
+extern bool pir_state;    // PIR 是否检测到人 (可以通过按键或传感器改变)
+
 void DataReport_Task(void *pvParameters)
 {
-    static char mqtt_pub_buff[128];
-    vTaskDelay(pdMS_TO_TICKS(100));
+    // 1. 去掉 static，放在栈上，并将容量稍微扩大以应对后续加入更多字段
+    char mqtt_pub_buff[256]; 
+    
+    // 用于记录上一次成功发送的数据，用来做“变化阈值对比”
+    uint8_t last_temp = 0xFF; 
+    uint8_t last_humi = 0xFF;
+    bool last_pir_state = false;
+    
+    // 记录时间，用于心跳包计算
+    uint32_t last_report_time = 0; 
+    const uint32_t HEARTBEAT_INTERVAL = 60000; // 60秒心跳一次 (毫秒)
+
+    vTaskDelay(pdMS_TO_TICKS(1000)); // 等待传感器初始化稳定
+
     while (1)
     {
-        // 延时2秒发布一条消息到 MQTT_PUBLIC_TOPIC主题
         if (s_is_mqtt_connected)
         {
-            snprintf(mqtt_pub_buff, 128, "{\"temperature_data\":%d,\"humidity_data\":%d}", Temp, Humi);
-            // snprintf(mqtt_pub_buff, 128, "{\"temperature_data\":%d}", Temp);
-            esp_mqtt_client_publish(s_mqtt_client, MQTT_data_report_TOPIC,
-                                    mqtt_pub_buff, strlen(mqtt_pub_buff), 1, 0);
+            bool need_report = false;
+            uint32_t current_time = pdTICKS_TO_MS(xTaskGetTickCount());
+
+            // 条件 A：距离上次上报超过了 60 秒 (定时心跳包)
+            if ((current_time - last_report_time) >= HEARTBEAT_INTERVAL) {
+                need_report = true;
+            }
+            // 条件 B：温度变化 >= 1度，或湿度变化 >= 2% (数据剧烈变化)
+            else if (abs(Temp - last_temp) >= 1 || abs(Humi - last_humi) >= 2) {
+                need_report = true;
+            }
+            // 条件 C：PIR 状态发生了翻转 (例如突然有人闯入)
+            else if (pir_state != last_pir_state) {
+                need_report = true;
+            }
+
+            // 如果满足上述任意一个条件，则打包发送
+            if (need_report)
+            {
+                // 2. 使用 sizeof 自动获取缓冲大小，加入更多的业务字段
+                snprintf(mqtt_pub_buff, sizeof(mqtt_pub_buff), 
+                         "{\"temp\":%d,\"humi\":%d,\"pir\":%d,\"armed\":%d}", 
+                         Temp, Humi, pir_state ? 1 : 0, is_armed ? 1 : 0);
+
+                // 3. 检查 API 的返回值
+                int msg_id = esp_mqtt_client_publish(s_mqtt_client, MQTT_data_report_TOPIC,
+                                                     mqtt_pub_buff, strlen(mqtt_pub_buff), 1, 0);
+                
+                if (msg_id != -1) {
+                    ESP_LOGI("MQTT_PUB", "Report Success! ID:%d, Data:%s", msg_id, mqtt_pub_buff);
+                    // 发送成功后，更新记录值，用于下一次的对比
+                    last_temp = Temp;
+                    last_humi = Humi;
+                    last_pir_state = pir_state;
+                    last_report_time = current_time;
+                } else {
+                    ESP_LOGE("MQTT_PUB", "Report Failed! Buffer full or disconnected.");
+                }
+            }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        // 任务的轮询周期可以保持 100ms 或 500ms（响应突发事件），但不再是每轮都无脑上报了
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
-
 
 void mqtt_publish_alarm(void) 
 {

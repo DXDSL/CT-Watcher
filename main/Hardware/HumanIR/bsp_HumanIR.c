@@ -17,7 +17,7 @@ void delay_ms(unsigned int ms)
 void HumanIR_Init(void)
 {
     gpio_config_t io_config = {
-        .pin_bit_mask = (1ULL<<HUMANIR_PIN),     //配置引脚
+        .pin_bit_mask = (1ULL<<PIR_PIN),     //配置引脚
         .mode =GPIO_MODE_INPUT,                  //输入模式
         .pull_up_en = GPIO_PULLUP_ENABLE,        //使能上拉
         .pull_down_en = GPIO_PULLDOWN_DISABLE,   //不使能下拉
@@ -36,7 +36,7 @@ void HumanIR_Init(void)
 ******************************************************************/
 bool Get_HumanIR(void)
 {
-    return ( gpio_get_level(HUMANIR_PIN) ? 1 : 0 );
+    return ( gpio_get_level(PIR_PIN) ? 1 : 0 );
 }
 
 
