@@ -1,12 +1,15 @@
 #include "Mqtt.h"
+#include "ble_prov.h"
+#include "mqtt_client.h"
+#include "DHT11.h"
 
 static const char* TAG = "MQTT";
 
-#define MQTT_USERNAME "17291772"                                    // 修改为平台上的"产品ID"
-#define MQTT_CLIENT "172917721"                                     // 请在平台"设备列表"里找到具体的那台设备，复制它的"设备ID"填在这里
-#define MQTT_ADDRESS "mqtt://2000506597.non-nb.ctwing.cn"          // 修改为平台上的"产品ID"对应的"连接地址"
-#define MQTT_PORT   1883
-#define MQTT_PASSWORD "04d85_5O6kRYt6thxVwRH2fo5nw52nu_7uRiC4jqNe4"            // 特征串
+// #define MQTT_USERNAME "17291772"                                    // 修改为平台上的"产品ID"
+// #define MQTT_CLIENT "172917721"                                     // 请在平台"设备列表"里找到具体的那台设备，复制它的"设备ID"填在这里
+// #define MQTT_ADDRESS "mqtt://2000506597.non-nb.ctwing.cn"          // 修改为平台上的"产品ID"对应的"连接地址"
+// #define MQTT_PORT   1883
+// #define MQTT_PASSWORD "04d85_5O6kRYt6thxVwRH2fo5nw52nu_7uRiC4jqNe4"            // 特征串
 
 #define MQTT_data_report_TOPIC      "data_report"             
 #define MQTT_SUBSCRIBE_TOPIC        "device_control" 
@@ -71,36 +74,24 @@ static void aliot_mqtt_event_handler(void *event_handler_arg,
  */
 void mqtt_start(void)
 {
-    esp_mqtt_client_config_t mqtt_cfg = {0};
-    mqtt_cfg.broker.address.uri = MQTT_ADDRESS;
-    mqtt_cfg.broker.address.port = MQTT_PORT;
-    // Client ID
-    mqtt_cfg.credentials.client_id = MQTT_CLIENT;
-    // 用户名
-    mqtt_cfg.credentials.username = MQTT_USERNAME;
-    // 密码
-    mqtt_cfg.credentials.authentication.password = MQTT_PASSWORD;
-    ESP_LOGI(TAG, "mqtt connect->clientId:%s,username:%s,password:%s", mqtt_cfg.credentials.client_id,
-             mqtt_cfg.credentials.username, mqtt_cfg.credentials.authentication.password);
-    // 设置mqtt配置，返回mqtt操作句柄
+// 检查是否为空，如果为空可以给一个默认值防止指针越界
+    if (strlen(g_mqtt_cfg.mqtt_uri) == 0) {
+        ESP_LOGE("MQTT", "MQTT 参数为空，跳过连接！");
+        return;
+    }
+
+    esp_mqtt_client_config_t mqtt_cfg = {
+        .broker.address.uri = g_mqtt_cfg.mqtt_uri,
+        .credentials.client_id = g_mqtt_cfg.mqtt_devid,
+        .credentials.username = g_mqtt_cfg.mqtt_devid, // username 和 client_id 通常一样
+        .credentials.authentication.password = g_mqtt_cfg.mqtt_pwd,
+    };
+
     s_mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
-    // 注册mqtt事件回调函数
-    esp_mqtt_client_register_event(s_mqtt_client, ESP_EVENT_ANY_ID, aliot_mqtt_event_handler, s_mqtt_client);
-    // 启动mqtt连接
+    esp_mqtt_client_register_event(s_mqtt_client, ESP_EVENT_ANY_ID, aliot_mqtt_event_handler, NULL);
     esp_mqtt_client_start(s_mqtt_client);
 }
 
-/** wifi事件通知
- * @param 无
- * @return 无
- */
-void wifi_event_handler(WIFI_EV_e ev)
-{
-    if (ev == WIFI_CONNECTED)
-    {
-        xEventGroupSetBits(s_wifi_ev, WIFI_CONNECT_BIT);
-    }
-}
 
 extern bool is_armed;         // 当前是否处于布防模式
 extern bool pir_state;    // PIR 是否检测到人 (可以通过按键或传感器改变)

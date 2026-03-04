@@ -8,6 +8,7 @@
 #include "bsp_Audio.h"
 #include "bsp_HumanIR.h"
 #include "mqtt.h"
+#include "ble_prov.h"
 
 static const char *TAG = "MAIN";
 
@@ -52,24 +53,6 @@ void pir_audio_task(void *pvParameters)
     }
 }
 
-// ==========================================
-// 定义 WiFi 事件回调函数
-// 当底层获取到 IP 地址后，会调用这个函数
-// ==========================================
-void ESP32_wifi_event_callback(WIFI_EV_e status)
-{
-    if (status == WIFI_CONNECTED) {
-        ESP_LOGI(TAG, "🟢 WiFi Connected successfully! (WiFi连接成功，已获取IP)");
-        
-        // 通知 mqtt.c 网络已就绪，置位事件标志
-        wifi_event_handler(status);
-
-        // 启动 MQTT
-        ESP_LOGI(TAG, "WiFi ready! Starting MQTT...");
-        mqtt_start();
-    }
-}
-
 void app_main(void)
 {
     // 1. 初始化 NVS
@@ -77,13 +60,6 @@ void app_main(void)
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ESP_ERROR_CHECK(nvs_flash_init());
-    }
-
-    // 在初始化 WiFi 和 MQTT 之前，必须先创建事件组！
-    s_wifi_ev = xEventGroupCreate();
-    if (s_wifi_ev == NULL) {
-        ESP_LOGE(TAG, "Failed to create WiFi event group!");
-        return;
     }
 
     // 2. 挂载 SPIFFS
@@ -95,7 +71,7 @@ void app_main(void)
 
     // 3. 初始化网络模块
     ESP_LOGI(TAG, "Initializing WiFi...");
-    wifi_sta_init(ESP32_wifi_event_callback); // 初始化 WIFI 连接
+    app_wifi_prov_start();
 
     // 4. 初始化人体感应传感器
     HumanIR_Init();
