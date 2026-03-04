@@ -19,8 +19,12 @@
 #define DHT11_IN gpio_set_direction(DHT11_PIN, GPIO_MODE_INPUT)
 #define DHT11_OUT gpio_set_direction(DHT11_PIN, GPIO_MODE_OUTPUT)
 
-extern uint8_t DHT11Data[4];
-extern uint8_t Temp,Humi;
+/** @brief 存储DHT11读取的原始数据 (4字节: 湿度整数、湿度小数、温度整数、温度小数) */
+uint8_t DHT11Data[4] = {0};
+/** @brief 存储当前温度值 */
+uint8_t Temp;
+/** @brief 存储当前湿度值 */
+uint8_t Humi;
 
 void DHT11_Start(void);
 uint8_t DHT11_ReadValue(void);

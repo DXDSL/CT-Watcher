@@ -7,6 +7,7 @@ idf_component_register(
         "Hardware/HumanIR/bsp_HumanIR.c"
         "AUDIO/bsp_Audio.c"
         "NETWORK/PROV/ble_prov.c"
+        "NETWORK/WebConfig/web_config.c"
 
     INCLUDE_DIRS 
         "."
@@ -16,6 +17,10 @@ idf_component_register(
         "AUDIO"
         "NETWORK/MQTT"
         "NETWORK/PROV"
+        "NETWORK/WebConfig"
+
+    EMBED_TXTFILES
+        "NETWORK/WebConfig/index.html"
 
     REQUIRES 
         esp_audio_codec
@@ -28,6 +33,7 @@ idf_component_register(
         esp_wifi
         wifi_provisioning
         json
+        esp_http_server
 )
 
 spiffs_create_partition_image(storage ../spiffs FLASH_IN_PROJECT)

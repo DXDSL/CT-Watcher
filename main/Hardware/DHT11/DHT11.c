@@ -1,17 +1,4 @@
-/**
- * @file DHT11.c
- * @brief DHT11温湿度传感器驱动程序
- * @details 实现DHT11数字温湿度传感器的通信、数据读取及FreeRTOS任务管理
- */
-
 #include "DHT11.h"
-
-/** @brief 存储DHT11读取的原始数据 (4字节: 湿度整数、湿度小数、温度整数、温度小数) */
-uint8_t DHT11Data[4] = {0};
-/** @brief 存储当前温度值 */
-uint8_t Temp;
-/** @brief 存储当前湿度值 */
-uint8_t Humi;
 
 /**
  * @def TIMEOUT_US

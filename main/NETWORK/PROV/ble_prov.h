@@ -8,6 +8,7 @@ typedef struct {
     char mqtt_uri[64];
     char mqtt_devid[32];  // Client ID / Username
     char mqtt_pwd[64];    // 特征串 Password
+    char mqtt_prodid[32]; // 产品ID
 } device_mqtt_config_t;
 
 extern device_mqtt_config_t g_mqtt_cfg;

@@ -5,11 +5,11 @@
 
 static const char* TAG = "MQTT";
 
-// #define MQTT_USERNAME "17291772"                                    // 修改为平台上的"产品ID"
-// #define MQTT_CLIENT "172917721"                                     // 请在平台"设备列表"里找到具体的那台设备，复制它的"设备ID"填在这里
-// #define MQTT_ADDRESS "mqtt://2000506597.non-nb.ctwing.cn"          // 修改为平台上的"产品ID"对应的"连接地址"
+// #define MQTT_USERNAME "17291772"                                    // 产品ID
+// #define MQTT_CLIENT "172917721"                                     // 设备ID
+// #define MQTT_ADDRESS "mqtt://2000506597.non-nb.ctwing.cn"          // 平台上的"产品ID"对应的"连接地址"
 // #define MQTT_PORT   1883
-// #define MQTT_PASSWORD "04d85_5O6kRYt6thxVwRH2fo5nw52nu_7uRiC4jqNe4"            // 特征串
+// #define MQTT_PASSWORD "04d85_5O6kRYt6thxVwRH2fo5nw52nu_7uRiC4jqNe4"  // 特征串
 
 #define MQTT_data_report_TOPIC      "data_report"             
 #define MQTT_SUBSCRIBE_TOPIC        "device_control" 
@@ -83,8 +83,9 @@ void mqtt_start(void)
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker.address.uri = g_mqtt_cfg.mqtt_uri,
         .credentials.client_id = g_mqtt_cfg.mqtt_devid,
-        .credentials.username = g_mqtt_cfg.mqtt_devid, // username 和 client_id 通常一样
+        .credentials.username = g_mqtt_cfg.mqtt_prodid, 
         .credentials.authentication.password = g_mqtt_cfg.mqtt_pwd,
+
     };
 
     s_mqtt_client = esp_mqtt_client_init(&mqtt_cfg);

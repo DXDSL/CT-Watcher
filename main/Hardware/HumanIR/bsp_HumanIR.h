@@ -19,6 +19,5 @@
 void delay_ms(unsigned int ms);
 void HumanIR_Init(void);
 bool Get_HumanIR(void);
-void HumanIR_Task(void *arg);
 
 #endif

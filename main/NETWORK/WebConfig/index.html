@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>MQTT 配置中心</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; text-align: center; margin-top: 40px; }
+        form { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: inline-block; text-align: left; width: 90%; max-width: 420px; box-sizing: border-box; }
+        h2 { color: #333; text-align: center; margin-top: 0; }
+        .input-group { margin-bottom: 15px; }
+        label { font-weight: bold; font-size: 14px; color: #555; display: block; margin-bottom: 5px; }
+        input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 15px; transition: border-color 0.3s; }
+        input:focus { border-color: #007bff; outline: none; }
+        /* 使用 HTML5 原生的 pattern 属性实现前端纯数字检测 */
+        input:invalid { border-color: #dc3545; background-color: #fff8f8; }
+        button { width: 100%; padding: 14px; background: #007bff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; transition: background 0.3s; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <form action='/save' method='POST'>
+        <h2>☁️ CT-Watcher 云端配置</h2>
+        
+        <div class="input-group">
+            <label>MQTT 服务器地址</label>
+            <input type='text' name='uri' value='mqtt://2000506597.non-nb.ctwing.cn:1883' required>
+        </div>
+
+        <div class="input-group">
+            <label>产品 ID (Username)</label>
+            <input type='text' name='prodid' placeholder='输入电信平台产品ID (仅限数字)' pattern='[0-9]+' title='产品ID必须为纯数字' required>
+        </div>
+
+        <div class="input-group">
+            <label>设备 ID (Client ID)</label>
+            <input type='text' name='devid' placeholder='输入电信平台设备号 (仅限数字)' pattern='[0-9]+' title='设备ID必须为纯数字' required>
+        </div>
+
+        <div class="input-group">
+            <label>特征串 (Password)</label>
+            <input type='text' name='mqpass' placeholder='输入设备特征串' required>
+        </div>
+
+        <button type='submit'>💾 保存并连接</button>
+    </form>
+</body>
+</html>
