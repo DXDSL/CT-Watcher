@@ -9,6 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+// 日志标签，用于 ESP_LOG 输出
 static const char *TAG = "WEB_SERVER";
 
 // 引用 CMake 打包进来的外部 HTML 文件变量 (系统会自动根据文件名生成这些符号)
@@ -16,6 +17,8 @@ extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
 
 // 【新增】：后端校验，检查字符串是否全为数字
+// 参数：str - 要检查的字符串
+// 返回：true 如果字符串全为数字，否则 false
 static bool is_numeric_str(const char *str) {
     if (str == NULL || *str == '\0') return false;
     while (*str) {
@@ -25,7 +28,8 @@ static bool is_numeric_str(const char *str) {
     return true;
 }
 
-// URL 解码函数
+// URL 解码函数，将 URL 编码的字符串解码为原始字符串
+// 参数：dst - 解码后的输出缓冲区，src - 要解码的输入字符串
 static void url_decode(char *dst, const char *src) {
     char a, b;
     while (*src) {
@@ -46,6 +50,7 @@ static void url_decode(char *dst, const char *src) {
 }
 
 // GET请求：直接发送分离出来的 index.html
+// 处理根路径的 GET 请求，返回嵌入的 HTML 页面
 static esp_err_t root_get_handler(httpd_req_t *req) {
     // 动态计算嵌入文件的大小并发送
     httpd_resp_send(req, (const char *)index_html_start, index_html_end - index_html_start);
@@ -53,6 +58,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 }
 
 // POST请求：处理表单提交
+// 处理 /save 路径的 POST 请求，解析表单数据，验证输入，保存到 NVS，并重启设备
 static esp_err_t save_post_handler(httpd_req_t *req) {
     char buf[1024] = {0}; 
     int ret, remaining = req->content_len;
@@ -68,7 +74,6 @@ static esp_err_t save_post_handler(httpd_req_t *req) {
 
     char value[128], decoded_uri[128], decoded_prodid[128], decoded_devid[128], decoded_pwd[128];
     
-    // 初始化清空，防乱码
     memset(decoded_prodid, 0, sizeof(decoded_prodid));
     memset(decoded_devid, 0, sizeof(decoded_devid));
 
@@ -77,15 +82,18 @@ static esp_err_t save_post_handler(httpd_req_t *req) {
     if (httpd_query_key_value(buf, "devid", value, sizeof(value)) == ESP_OK) { url_decode(decoded_devid, value); }
     if (httpd_query_key_value(buf, "mqpass", value, sizeof(value)) == ESP_OK) { url_decode(decoded_pwd, value); }
 
-    // 【后端拦截】：如果有人绕过了前端校验，C语言会在这里把它拦截下来！
+    // 【后端拦截】
     if (!is_numeric_str(decoded_prodid) || !is_numeric_str(decoded_devid)) {
         ESP_LOGE(TAG, "安全拦截：产品ID或设备ID包含非数字字符！");
         const char* err_page = "<h2 style='color:red;text-align:center;font-family:Arial;margin-top:50px;'>❌ 错误：产品ID和设备ID必须是纯数字！<br><br><a href='/'>返回重试</a></h2>";
+        
+        // 👇【新增】：强制声明使用 UTF-8 编码
+        httpd_resp_set_type(req, "text/html; charset=utf-8");
         httpd_resp_send(req, err_page, HTTPD_RESP_USE_STRLEN);
-        return ESP_OK; // 拦截成功，返回前端提示，不重启设备
+        return ESP_OK; 
     }
 
-    // 校验通过，保存到 NVS
+    // 保存到 NVS
     nvs_handle_t my_handle;
     nvs_open("storage", NVS_READWRITE, &my_handle);
     nvs_set_str(my_handle, "mqtt_uri", decoded_uri);
@@ -95,14 +103,19 @@ static esp_err_t save_post_handler(httpd_req_t *req) {
     nvs_commit(my_handle);
     nvs_close(my_handle);
 
-    httpd_resp_send(req, "<h2 style='color:#28a745;text-align:center;font-family:Arial;margin-top:50px;'>✅ 配置已保存！设备正在连接云端...</h2>", HTTPD_RESP_USE_STRLEN);
     ESP_LOGI(TAG, "MQTT 参数已更新！正在重启以应用新配置...");
+    
+    // 👇【新增】：强制声明使用 UTF-8 编码，彻底解决乱码！
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_send(req, "<h2 style='color:#28a745;text-align:center;font-family:Arial;margin-top:50px;'>✅ 配置已保存！设备正在连接云端...</h2>", HTTPD_RESP_USE_STRLEN);
     
     vTaskDelay(pdMS_TO_TICKS(1500));
     esp_restart(); 
     return ESP_OK;
 }
 
+// 启动 MQTT Web 配置服务器
+// 初始化 HTTP 服务器，注册 GET 和 POST 处理器，并启动服务
 void start_mqtt_web_server(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_len = 2048;
