@@ -16,3 +16,4 @@ dependencies:
   #   public: true
   chmorgan/esp-file-iterator: ^1.0.0
   espressif/esp_audio_codec: ^2.4.1
+  nixy4/u8g2: ^0.1.4

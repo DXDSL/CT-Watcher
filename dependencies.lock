@@ -23,10 +23,21 @@ dependencies:
     source:
       type: idf
     version: 5.5.2
+  nixy4/u8g2:
+    component_hash: d23326bf33da6b0a41ef16caa527689d770bcb7c469d8d57ca18a42f4cfed81b
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.1.4
 direct_dependencies:
 - chmorgan/esp-file-iterator
 - espressif/esp_audio_codec
 - idf
-manifest_hash: 9a95f3793ed4814b3d4c6655e735d9839c07de67b6385999b110f49c3609c974
+- nixy4/u8g2
+manifest_hash: acc3d2695da6b9953b8b450aa180175e648c101525a9349108dfd5d44e2ed652
 target: esp32s3
 version: 2.0.0

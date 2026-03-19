@@ -2,22 +2,22 @@ idf_component_register(
     SRCS 
         "main.c"
         "Hardware/DHT11/DHT11.c"
-        "Hardware/OLED/oled.c"
         "NETWORK/MQTT/mqtt.c"
         "Hardware/HumanIR/bsp_HumanIR.c"
         "AUDIO/bsp_Audio.c"
         "NETWORK/PROV/ble_prov.c"
         "NETWORK/WebConfig/web_config.c"
+        "Hardware/OLED/bsp_oled.c"
 
     INCLUDE_DIRS 
         "."
         "Hardware/DHT11"
-        "Hardware/OLED"
         "Hardware/HumanIR"
         "AUDIO"
         "NETWORK/MQTT"
         "NETWORK/PROV"
         "NETWORK/WebConfig"
+        "Hardware/OLED"
 
     EMBED_TXTFILES
         "NETWORK/WebConfig/index.html"
