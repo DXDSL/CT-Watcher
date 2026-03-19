@@ -3,6 +3,9 @@
 #include "mqtt_client.h"
 #include "DHT11.h"
 #include <string.h>
+#include "cJSON.h"       // 用于解析 JSON 指令
+#include "bsp_oled.h"    // 包含 is_armed 变量
+#include <string.h>      // 包含 memcpy 和 strlen
 
 static const char* TAG = "MQTT";
 
@@ -59,8 +62,38 @@ static void aliot_mqtt_event_handler(void *event_handler_arg,
         ESP_LOGI(TAG, "mqtt publish ack, msg_id=%d", event->msg_id);
         break;
     case MQTT_EVENT_DATA:
-        printf("TOPIC=%.*s\r\n", event->topic_len, event->topic); // 收到Pub消息直接打印出来
-        printf("DATA=%.*s\r\n", event->data_len, event->data);
+        // 打印原始收到信息的长度和Topic
+        ESP_LOGI(TAG, "Receive Topic: %.*s", event->topic_len, event->topic);
+        
+        // ⚠️ 非常关键：MQTT 传过来的 payload 默认是不带 '\0' 结束符的，直接当字符串处理会乱码或越界！
+        // 必须手动申请内存，将数据拷贝进去并补上 '\0'
+        char *json_str = malloc(event->data_len + 1);
+        if (json_str != NULL) {
+            memcpy(json_str, event->data, event->data_len);
+            json_str[event->data_len] = '\0';
+            
+            ESP_LOGI(TAG, "Receive JSON String: %s", json_str);
+
+            // 开始解析 JSON 数据
+            cJSON *root = cJSON_Parse(json_str);
+            if (root != NULL) {
+                // 查找有没有 "armed" 这个键
+                cJSON *armed_item = cJSON_GetObjectItem(root, "armed");
+                if (armed_item != NULL && cJSON_IsNumber(armed_item)) {
+                    
+                    // 👈 核心动作：根据云端指令，修改设备的真实全局变量！
+                    is_armed = (armed_item->valueint == 1) ? true : false;
+                    
+                    ESP_LOGW(TAG, ">>>>>>>> 云端下发指令：已将安防模式切换为 -> %s <<<<<<<<", is_armed ? "布防" : "撤防");
+                    
+                    // (可选) 在这里可以加入控制蜂鸣器“滴”一声的提示音逻辑
+                }
+                cJSON_Delete(root); // 解析完必须释放 cJSON 树的内存
+            } else {
+                ESP_LOGE(TAG, "JSON Parse Failed!");
+            }
+            free(json_str); // 释放刚才申请的字符串内存
+        }
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -111,19 +144,19 @@ extern bool pir_state;    // PIR 是否检测到人 (可以通过按键或传感
 
 void DataReport_Task(void *pvParameters)
 {
-    // 1. 去掉 static，放在栈上，并将容量稍微扩大以应对后续加入更多字段
     char mqtt_pub_buff[256]; 
     
-    // 用于记录上一次成功发送的数据，用来做“变化阈值对比”
+    // 用于记录上一次成功发送的数据
     uint8_t last_temp = 0xFF; 
     uint8_t last_humi = 0xFF;
     bool last_pir_state = false;
+    bool last_armed_state = is_armed; // 👈 新增：用于追踪布防模式是否发生了切换
     
     // 记录时间，用于心跳包计算
     uint32_t last_report_time = 0; 
-    const uint32_t HEARTBEAT_INTERVAL = 60000; // 60秒心跳一次 (毫秒)
+    const uint32_t HEARTBEAT_INTERVAL = 60000; // 60秒心跳
 
-    vTaskDelay(pdMS_TO_TICKS(1000)); // 等待传感器初始化稳定
+    vTaskDelay(pdMS_TO_TICKS(1000)); 
 
     while (1)
     {
@@ -136,33 +169,37 @@ void DataReport_Task(void *pvParameters)
             if ((current_time - last_report_time) >= HEARTBEAT_INTERVAL) {
                 need_report = true;
             }
-            // 条件 B：温度变化 >= 1度，或湿度变化 >= 2% (数据剧烈变化)
-            else if (abs(Temp - last_temp) >= 1 || abs(Humi - last_humi) >= 2) {
+            // 条件 B：温度变化 >= 1度，或湿度变化 >= 2% (环境剧变)
+            else if (abs(current_temp - last_temp) >= 1 || abs(current_hum - last_humi) >= 2) {
                 need_report = true;
             }
-            // 条件 C：PIR 状态发生了翻转 (例如突然有人闯入)
-            else if (pir_state != last_pir_state) {
+            // 👈 条件 C (已修复)：只有在“布防”模式下，才允许 PIR 的跳变触发上报！
+            else if (is_armed && (pir_state != last_pir_state)) {
+                need_report = true;
+            }
+            // 👈 条件 D (新增)：如果用户下发指令切换了布防/撤防模式，必须立刻上报一次！
+            else if (is_armed != last_armed_state) {
                 need_report = true;
             }
 
             // 如果满足上述任意一个条件，则打包发送
             if (need_report)
             {
-                // 2. 使用 sizeof 自动获取缓冲大小，加入更多的业务字段
+                // 👈 优化 JSON 打包：如果处于撤防状态，强制让 pir 字段为 0，保持云端面板干净
                 snprintf(mqtt_pub_buff, sizeof(mqtt_pub_buff), 
                          "{\"temp\":%d,\"humi\":%d,\"pir\":%d,\"armed\":%d}", 
-                         Temp, Humi, pir_state ? 1 : 0, is_armed ? 1 : 0);
+                         current_temp, current_hum, (is_armed && pir_state) ? 1 : 0, is_armed ? 1 : 0);
 
-                // 3. 检查 API 的返回值
                 int msg_id = esp_mqtt_client_publish(s_mqtt_client, MQTT_data_report_TOPIC,
                                                      mqtt_pub_buff, strlen(mqtt_pub_buff), 1, 0);
                 
                 if (msg_id != -1) {
-                    ESP_LOGI("MQTT_PUB", "Report Success! ID:%d, Data:%s", msg_id, mqtt_pub_buff);
-                    // 发送成功后，更新记录值，用于下一次的对比
-                    last_temp = Temp;
-                    last_humi = Humi;
+                    ESP_LOGI("MQTT_PUB", "Report Success! Data:%s", mqtt_pub_buff);
+                    // 发送成功后，更新记录值
+                    last_temp = current_temp;
+                    last_humi = current_hum;
                     last_pir_state = pir_state;
+                    last_armed_state = is_armed; // 同步记录最新的安防模式
                     last_report_time = current_time;
                 } else {
                     ESP_LOGE("MQTT_PUB", "Report Failed! Buffer full or disconnected.");
@@ -170,7 +207,6 @@ void DataReport_Task(void *pvParameters)
             }
         }
 
-        // 任务的轮询周期可以保持 100ms 或 500ms（响应突发事件），但不再是每轮都无脑上报了
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
