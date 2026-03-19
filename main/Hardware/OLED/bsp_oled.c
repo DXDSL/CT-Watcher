@@ -9,12 +9,14 @@
 
 // ================= 定义全局 UI 变量 =================
 volatile ui_mode_t current_ui_mode = UI_MODE_BOOT; 
-uint8_t boot_step = 0; // 👈 默认停留在第 0 步
+volatile boot_state_t boot_states[4] = {STEP_PENDING, STEP_PENDING, STEP_PENDING, STEP_PENDING};
+bool is_system_initialized = false;
+
 char current_ssid[33] = "None"; 
-char local_ip[20] = "0.0.0.0";
+char local_ip[20] = "127.0.0.1";
 bool is_wifi_connected = false;
-int current_temp = 0;   
-int current_hum = 0;    
+int current_temp = 0;
+int current_hum = 0;
 volatile bool is_alarming = false; 
 
 // ================= U8g2 底层变量 =================
@@ -42,7 +44,7 @@ void OLED_Display_Task(void *pvParameters) {
     u8g2_SetFontMode(&u8g2, 1); 
 
     while(1) {
-        // [网络拉取逻辑保持不变]
+        // ----- 【后台任务：拉取网络状态】 -----
         if (++net_update_cnt >= 10) {
             net_update_cnt = 0;
             wifi_ap_record_t ap_info;
@@ -61,59 +63,83 @@ void OLED_Display_Task(void *pvParameters) {
                 }
             } else {
                 is_wifi_connected = false;
-                snprintf(current_ssid, sizeof(current_ssid), "等待连接...");
+                snprintf(current_ssid, sizeof(current_ssid), "已断开，等待连接...");
                 snprintf(local_ip, sizeof(local_ip), "0.0.0.0");
             }
         }
 
-        // [屏幕绘制逻辑]
+        // ----- 【屏幕绘制逻辑】 -----
         u8g2_ClearBuffer(&u8g2); 
         u8g2_SetFont(&u8g2, u8g2_font_wqy12_t_gb2312); 
 
         if (current_ui_mode == UI_MODE_BOOT) {
-            // ----- 【超酷的自检打勾清单】 -----
+            // 开机自检界面
             u8g2_DrawUTF8(&u8g2, 24, 11, "- 系统自检中 -");
-            u8g2_DrawHLine(&u8g2, 0, 14, 128); // 标题底部的分隔线
+            u8g2_DrawHLine(&u8g2, 0, 14, 128); 
 
-            // 根据 boot_step 的值，依次将 [ ] 替换为 [√]
-            u8g2_DrawUTF8(&u8g2, 4, 26, boot_step >= 1 ? "[√] 挂载系统文件" : "[ ] 挂载系统文件");
-            u8g2_DrawUTF8(&u8g2, 4, 38, boot_step >= 2 ? "[√] 初始化传感器" : "[ ] 初始化传感器");
-            u8g2_DrawUTF8(&u8g2, 4, 50, boot_step >= 3 ? "[√] 拉起蓝牙配网" : "[ ] 拉起蓝牙配网");
-            u8g2_DrawUTF8(&u8g2, 4, 62, boot_step >= 4 ? "[√] 启动音频模块" : "[ ] 启动音频模块");
+            const char* step_names[4] = {"挂载系统文件", "初始化传感器", "拉起网络服务", "启动音频模块"};
+            for(int i = 0; i < 4; i++) {
+                char line_buf[64];
+                int y_pos = 26 + i * 12; 
 
-        } else if (current_ui_mode == UI_MODE_NORMAL) {
-            // ----- 【高科技分割线仪表盘】 -----
+                if (boot_states[i] == STEP_PENDING) {
+                    sprintf(line_buf, "[ ] %s", step_names[i]);
+                } else if (boot_states[i] == STEP_IN_PROGRESS) {
+                    if ((xTaskGetTickCount() * portTICK_PERIOD_MS) % 500 < 250) {
+                        sprintf(line_buf, "[>] %s...", step_names[i]);
+                    } else {
+                        sprintf(line_buf, "[ ] %s...", step_names[i]);
+                    }
+                } else if (boot_states[i] == STEP_SUCCESS) {
+                    sprintf(line_buf, "[√] %s", step_names[i]);
+                } else if (boot_states[i] == STEP_FAILED) {
+                    sprintf(line_buf, "[×] %s (ERR!)", step_names[i]);
+                }
+                u8g2_DrawUTF8(&u8g2, 4, y_pos, line_buf);
+            }
+        } 
+        else if (current_ui_mode == UI_MODE_NORMAL) {
+            // 正常仪表盘界面
             char str_buf[64];
             
-            // 行 1
             sprintf(str_buf, "WIFI: %s", current_ssid);
             u8g2_DrawUTF8(&u8g2, 0, 11, str_buf);
-            u8g2_DrawHLine(&u8g2, 0, 14, 128); // 👉 分隔线 1
+            u8g2_DrawHLine(&u8g2, 0, 14, 128); 
             
-            // 行 2
             sprintf(str_buf, "IP: %s", local_ip);
             u8g2_DrawUTF8(&u8g2, 0, 27, str_buf);
-            u8g2_DrawHLine(&u8g2, 0, 30, 128); // 👉 分隔线 2
+            u8g2_DrawHLine(&u8g2, 0, 30, 128); 
             
-            // 行 3
             if (is_armed) {
                 if (is_alarming) {
                     if ((xTaskGetTickCount() * portTICK_PERIOD_MS) % 500 < 250) {
-                        u8g2_DrawUTF8(&u8g2, 0, 43, "模式:布防  警  报!");
+                        u8g2_DrawUTF8(&u8g2, 0, 43, "模式：布防    [!]警报!");
                     } else {
-                        u8g2_DrawUTF8(&u8g2, 0, 43, "模式:布防   警报! ");
+                        u8g2_DrawUTF8(&u8g2, 0, 43, "模式：布防       警报! ");
                     }
                 } else {
-                    u8g2_DrawUTF8(&u8g2, 0, 43, "模式:布防 状态:安全");
+                    u8g2_DrawUTF8(&u8g2, 0, 43, "模式：布防 状态：安全");
                 }
             } else {
-                u8g2_DrawUTF8(&u8g2, 0, 43, "模式:撤防      ");
+                u8g2_DrawUTF8(&u8g2, 0, 43, "模式：撤防 状态：关闭");
             }
-            u8g2_DrawHLine(&u8g2, 0, 46, 128); // 👉 分隔线 3
+            u8g2_DrawHLine(&u8g2, 0, 46, 128); 
 
-            // 行 4
-            sprintf(str_buf, "温度:%d°C  湿度:%d%%", current_temp, current_hum);
+            sprintf(str_buf, "温度：%d°C  湿度：%d%%", current_temp, current_hum);
             u8g2_DrawUTF8(&u8g2, 0, 59, str_buf);
+        }
+        else if (current_ui_mode == UI_MODE_PROV) {
+            // 配网引导界面
+            if ((xTaskGetTickCount() * portTICK_PERIOD_MS) % 1000 < 500) {
+                u8g2_DrawUTF8(&u8g2, 8, 12, "[!] 连续5次连接失败");
+            } else {
+                u8g2_DrawUTF8(&u8g2, 16, 12, "    连续5次连接失败");
+            }
+            u8g2_DrawHLine(&u8g2, 0, 15, 128); 
+
+            u8g2_DrawUTF8(&u8g2, 0, 31, "请打开手机蓝牙配网");
+            u8g2_DrawUTF8(&u8g2, 0, 47, "设备名称: CT-Watcher");
+            u8g2_DrawUTF8(&u8g2, 0, 63, "设备密码: abcd1234");
         }
 
         u8g2_SendBuffer(&u8g2); 

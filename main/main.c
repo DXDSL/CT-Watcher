@@ -34,6 +34,7 @@ void pir_audio_task(void *pvParameters)
     }
 }
 
+// ================= 主函数 =================
 void app_main(void)
 {
     esp_err_t ret = nvs_flash_init();
@@ -42,45 +43,48 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
-    // 1. 初始化屏幕并拉起 UI 任务
+    // 1. 优先初始化屏幕并拉起 UI 任务
     init_oled_u8g2(); 
     xTaskCreate(OLED_Display_Task, "OLED_Task", 8192, NULL, 4, NULL); 
+    vTaskDelay(pdMS_TO_TICKS(500)); // 让用户看一眼全部为空 [ ] 的初始界面
 
-    // 此时屏幕会显示 4 个空的 [ ]
-    boot_step = 0; 
-    vTaskDelay(pdMS_TO_TICKS(400)); // 让用户看清初始自检画面
-
-    // 2. 挂载系统文件
-    ESP_LOGI(TAG, "Mounting SPIFFS...");
+    // 2. 挂载系统文件 (SPIFFS)
+    boot_states[0] = STEP_IN_PROGRESS; // 设为执行中 (屏幕开始闪烁 [>])
+    vTaskDelay(pdMS_TO_TICKS(200));    // 略微延时，确保 UI 刷新出动画
     if (bsp_spiffs_mount() != ESP_OK) {
-        return; 
+        boot_states[0] = STEP_FAILED;  // 设为失败
+        // 发生致命错误，死循环挂起，保留屏幕错误画面供排查
+        while(1) { vTaskDelay(pdMS_TO_TICKS(1000)); } 
     }
-    boot_step = 1; // 👈 此时第 1 行打上 [√]
-    vTaskDelay(pdMS_TO_TICKS(400));
+    boot_states[0] = STEP_SUCCESS;     // 设为成功
 
     // 3. 初始化人体红外传感器
+    boot_states[1] = STEP_IN_PROGRESS;
+    vTaskDelay(pdMS_TO_TICKS(200));
     HumanIR_Init();
-    boot_step = 2; // 👈 此时第 2 行打上 [√]
-    vTaskDelay(pdMS_TO_TICKS(400));
+    boot_states[1] = STEP_SUCCESS;
 
-    // 4. 初始化网络服务
-    ESP_LOGI(TAG, "Initializing WiFi...");
+    // 4. 初始化网络服务 (如果这里有阻塞配网，屏幕会一直完美闪烁动画！)
+    boot_states[2] = STEP_IN_PROGRESS;
+    vTaskDelay(pdMS_TO_TICKS(200));
     app_wifi_prov_start();
     start_mqtt_web_server();
     mqtt_start();
-    boot_step = 3; // 👈 此时第 3 行打上 [√]
-    vTaskDelay(pdMS_TO_TICKS(400));
+    boot_states[2] = STEP_SUCCESS;
 
     // 5. 初始化音频模块
-    ESP_LOGI(TAG, "Initializing I2S...");
+    boot_states[3] = STEP_IN_PROGRESS;
+    vTaskDelay(pdMS_TO_TICKS(200));
     i2s_init();
-    boot_step = 4; // 👈 此时第 4 行打上 [√]，全部通过！
-    
-    // 强制停留 800 毫秒，向用户展示完美的“全绿”自检清单
-    vTaskDelay(pdMS_TO_TICKS(800)); 
+    // 假设 i2s 初始化失败，你也可以像 SPIFFS 那样加上条件判断，这里默认成功
+    boot_states[3] = STEP_SUCCESS; 
 
-    // 6. 切换到正常仪表盘界面并启动后台任务
-    current_ui_mode = UI_MODE_NORMAL; 
+    // 6. 全部完成，展示完美的“全绿”打勾清单
+    vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+    // 7. 切换到正常仪表盘界面并启动后台业务任务
+    is_system_initialized = true; 
+    current_ui_mode = UI_MODE_NORMAL;
 
     xTaskCreate(pir_audio_task, "pir_audio_task", 8192, NULL, 5, NULL);
     xTaskCreate(DataReport_Task, "DataReport_Task", 4096, NULL, 5, NULL);

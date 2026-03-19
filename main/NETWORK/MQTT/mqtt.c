@@ -2,14 +2,16 @@
 #include "ble_prov.h"
 #include "mqtt_client.h"
 #include "DHT11.h"
+#include <string.h>
 
 static const char* TAG = "MQTT";
 
-// #define MQTT_USERNAME "17291772"                                    // 产品ID
-// #define MQTT_CLIENT "172917721"                                     // 设备ID
-// #define MQTT_ADDRESS "mqtt://2000506597.non-nb.ctwing.cn"          // 平台上的"产品ID"对应的"连接地址"
-// #define MQTT_PORT   1883
-// #define MQTT_PASSWORD "04d85_5O6kRYt6thxVwRH2fo5nw52nu_7uRiC4jqNe4"  // 特征串
+// ================= 默认 MQTT 云端参数 (CTWing 平台) =================
+#define DEFAULT_MQTT_ADDRESS  "mqtt://2000506597.non-nb.ctwing.cn:1883"
+#define DEFAULT_MQTT_CLIENT   "172917721"                                   // 设备ID
+#define DEFAULT_MQTT_USERNAME "17291772"                                    // 产品ID
+#define DEFAULT_MQTT_PASSWORD "04d85_5O6kRYt6thxVwRH2fo5nw52nu_7uRiC4jqNe4" // 特征串
+// ===================================================================
 
 #define MQTT_data_report_TOPIC      "data_report"             
 #define MQTT_SUBSCRIBE_TOPIC        "device_control" 
@@ -74,18 +76,28 @@ static void aliot_mqtt_event_handler(void *event_handler_arg,
  */
 void mqtt_start(void)
 {
-// 检查是否为空，如果为空可以给一个默认值防止指针越界
+    // 1. 检查当前内存/NVS中是否有网络配置参数
     if (strlen(g_mqtt_cfg.mqtt_uri) == 0) {
-        ESP_LOGE("MQTT", "MQTT 参数为空，跳过连接！");
-        return;
+        ESP_LOGW(TAG, "未检测到用户自定义 MQTT 配置，将使用系统默认的 CTWing 平台参数！");
+        
+        // 自动将默认参数注入到全局结构体中
+        strncpy(g_mqtt_cfg.mqtt_uri, DEFAULT_MQTT_ADDRESS, sizeof(g_mqtt_cfg.mqtt_uri) - 1);
+        strncpy(g_mqtt_cfg.mqtt_devid, DEFAULT_MQTT_CLIENT, sizeof(g_mqtt_cfg.mqtt_devid) - 1);
+        strncpy(g_mqtt_cfg.mqtt_prodid, DEFAULT_MQTT_USERNAME, sizeof(g_mqtt_cfg.mqtt_prodid) - 1);
+        strncpy(g_mqtt_cfg.mqtt_pwd, DEFAULT_MQTT_PASSWORD, sizeof(g_mqtt_cfg.mqtt_pwd) - 1);
+        
+        // 可选：你甚至可以在这里调用一次保存函数，把默认参数直接写进 NVS
+        // 这样网页打开时，表单里也会默认填好这几个值
+    } else {
+        ESP_LOGI(TAG, "检测到自定义 MQTT 配置，准备连接至: %s", g_mqtt_cfg.mqtt_uri);
     }
 
+    // 2. 将装填好的参数传递给 ESP-IDF 的 MQTT 客户端
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker.address.uri = g_mqtt_cfg.mqtt_uri,
         .credentials.client_id = g_mqtt_cfg.mqtt_devid,
         .credentials.username = g_mqtt_cfg.mqtt_prodid, 
         .credentials.authentication.password = g_mqtt_cfg.mqtt_pwd,
-
     };
 
     s_mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
@@ -94,7 +106,7 @@ void mqtt_start(void)
 }
 
 
-extern bool is_armed;         // 当前是否处于布防模式
+extern bool is_armed;     // 当前是否处于布防模式
 extern bool pir_state;    // PIR 是否检测到人 (可以通过按键或传感器改变)
 
 void DataReport_Task(void *pvParameters)

@@ -11,6 +11,7 @@
 #include "wifi_provisioning/manager.h"
 #include "wifi_provisioning/scheme_ble.h"
 #include "ble_prov.h"
+#include "bsp_oled.h"
 
 static const char *TAG = "BLE_PROV";  // 日志标签，用于 ESP_LOG 输出
 
@@ -66,8 +67,6 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     } 
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         if (s_is_provisioning) {
-            // 【核心 Bug 修复】：配网期间如果密码错误断开，绝对不要手动重连！
-            // 把控制权完全交给底层的 wifi_prov_mgr，让它把错误信息通过蓝牙发给手机 APP。
             ESP_LOGW(TAG, "配网连接失败，等待底层通知手机 APP...");
         } else {
             // 日常断网重连逻辑保持不变
@@ -76,7 +75,16 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 s_retry_num++;
                 ESP_LOGI(TAG, "Wi-Fi 连不上或断开了，正在重试 (%d/5)...", s_retry_num);
             } else {
-                ESP_LOGE(TAG, "多次尝试连接 Wi-Fi 失败！");
+                // 👈 核心逻辑：超过 5 次，放弃自动重连，呼出配网界面！
+                ESP_LOGE("WIFI", "连接失败已达 5 次！请重新配网。");
+
+                // 切换屏幕到配网模式
+                current_ui_mode = UI_MODE_PROV;
+
+                if(!s_is_provisioning) { 
+                    boot_states[2] = STEP_FAILED;// 开机自检阶段失败，也可以将该步骤标记为失败
+                }
+
                 if (!s_is_provisioning) { 
                     s_retry_num = 0;
                     s_is_provisioning = true;
@@ -91,6 +99,11 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         ESP_LOGI(TAG, "🌐 Wi-Fi 连接成功！");
         ESP_LOGI(TAG, "📍 设备局域网 IP 地址: " IPSTR, IP2STR(&event->ip_info.ip));
         ESP_LOGI(TAG, "---------------------------------------------");
+        
+        // 必须满足系统曾经完美初始化过，才允许切回主界面！
+        if (current_ui_mode == UI_MODE_PROV && is_system_initialized == true) {
+            current_ui_mode = UI_MODE_NORMAL;
+        }
         
         s_retry_num = 0; 
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT); 
