@@ -34,7 +34,7 @@
 
 
 //延时 ms级别
-void delay_ms(int ms);
+void OLED_delay_ms(int ms);
 void OLED_ClearPoint(u8 x,u8 y);
 void OLED_ColorTurn(u8 i);
 void OLED_DisplayTurn(u8 i);

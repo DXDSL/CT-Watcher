@@ -24,7 +24,7 @@ void IIC_delay(void)
 }
 
 // 延时 ms级别
-void delay_ms(int ms)
+void OLED_delay_ms(int ms)
 {
 	vTaskDelay(ms / portTICK_PERIOD_MS);
 }
@@ -189,7 +189,7 @@ void OLED_Clear(void)
 			OLED_GRAM[n][i] = 0; // 清除所有数据
 		}
 	}
-	OLED_Refresh(); // 更新显示
+	// OLED_Refresh(); // 更新显示
 }
 
 // 画点
