@@ -60,20 +60,21 @@ void Led_Task(void *pvParameters) {
             if (is_alarming) {
                 // ----- 状态 1：布防且触发警报 (红蓝高频爆闪) -----
                 if (flash_toggle) {
-                    WS2812B_SetColor(255, 0, 0); // 纯红
+                    WS2812B_SetColor(255, 0, 0); // 纯红全亮
                 } else {
-                    WS2812B_SetColor(0, 0, 255); // 纯蓝
+                    WS2812B_SetColor(0, 0, 255); // 纯蓝全亮
                 }
                 flash_toggle = !flash_toggle;
                 vTaskDelay(pdMS_TO_TICKS(100)); // 100ms 极速切换
             } else {
                 // ----- 状态 2：布防但安全 (微弱绿灯长亮，表示系统正在警戒) -----
-                WS2812B_SetColor(0, 10, 0); // 亮度给 10 就够了，太亮会刺眼
+                WS2812B_SetColor(0, 10, 0); // 亮度给 10，低功耗且不刺眼
                 vTaskDelay(pdMS_TO_TICKS(500)); 
             }
         } else {
-            // ----- 状态 3：撤防状态 (彻底关灯) -----
-            WS2812B_SetColor(0, 0, 0);
+            // ----- 状态 3：撤防状态 (微弱黄灯长亮) -----
+            // 👇 修改这里：红色和绿色混合产生黄色，蓝光关掉 (10, 10, 0)
+            WS2812B_SetColor(10, 10, 0);
             vTaskDelay(pdMS_TO_TICKS(500));
         }
     }

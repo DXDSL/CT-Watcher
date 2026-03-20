@@ -1,25 +1,15 @@
 #ifndef __KEY_H__
 #define __KEY_H__
 
+#include <stdint.h>
 #include "driver/gpio.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
-//设置按键的引脚
-#define KEY_PIN     0
+// 硬件引脚定义 (参考 README 映射表)
+#define KEY1_PIN GPIO_NUM_4  // 布防/撤防切换
+#define KEY2_PIN GPIO_NUM_15 // 待定 (原计划: 测试喇叭)
+#define KEY3_PIN GPIO_NUM_16 // 待定 (原计划: SOS)
 
-/**
- * @函数说明        按键引脚初始化
- * @传入参数
- * @函数返回
- */
-void KeyGpioConfig(void);
-
-/**
- * @函数说明        获取按键引脚上的电平状态
- * @传入参数        无
- * @函数返回        0=按键被按下    1=按键没有被按下
- */
-bool GetKeyValue(void);
+// 启动按键扫描后台任务
+void Key_Task(void *pvParameters);
 
 #endif

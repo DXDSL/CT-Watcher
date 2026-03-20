@@ -9,6 +9,7 @@ idf_component_register(
         "NETWORK/WebConfig/web_config.c"
         "Hardware/OLED/bsp_oled.c"
         "Hardware/Led/led.c"
+        "Hardware/Key/key.c"
 
     INCLUDE_DIRS 
         "."
@@ -20,6 +21,7 @@ idf_component_register(
         "NETWORK/WebConfig"
         "Hardware/OLED"
         "Hardware/Led"
+        "Hardware/Key"
 
     EMBED_TXTFILES
         "NETWORK/WebConfig/index.html"

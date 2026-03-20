@@ -10,6 +10,7 @@
 #include "web_config.h"
 #include "bsp_oled.h"
 #include "led.h"
+#include "key.h"
 
 static const char *TAG = "MAIN";
 
@@ -38,34 +39,44 @@ void pir_audio_task(void *pvParameters)
 // ================= 主函数 =================
 void app_main(void)
 {
+    // ==========================================
+    // 1. 基础系统初始化 (NVS & UI)
+    // ==========================================
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
-    // 1. 优先初始化屏幕并拉起 UI 任务
+    // 优先拉起 OLED 任务，接管系统后续所有的状态显示
     init_oled_u8g2(); 
     xTaskCreate(OLED_Display_Task, "OLED_Task", 8192, NULL, 4, NULL); 
-    vTaskDelay(pdMS_TO_TICKS(500)); // 让用户看一眼全部为空 [ ] 的初始界面
+    vTaskDelay(pdMS_TO_TICKS(500)); // 预留时间展示初始空 Checklist [ ]
 
-    // 2. 挂载系统文件 (SPIFFS)
-    boot_states[0] = STEP_IN_PROGRESS; // 设为执行中 (屏幕开始闪烁 [>])
-    vTaskDelay(pdMS_TO_TICKS(200));    // 略微延时，确保 UI 刷新出动画
+    // ==========================================
+    // 2. 核心硬件与文件系统自检
+    // ==========================================
+    // [步骤 0] 挂载 SPIFFS 文件系统 (用于 MP3 音频和中文字库)
+    boot_states[0] = STEP_IN_PROGRESS; 
+    vTaskDelay(pdMS_TO_TICKS(200));    
     if (bsp_spiffs_mount() != ESP_OK) {
-        boot_states[0] = STEP_FAILED;  // 设为失败
-        // 发生致命错误，死循环挂起，保留屏幕错误画面供排查
-        while(1) { vTaskDelay(pdMS_TO_TICKS(1000)); } 
+        boot_states[0] = STEP_FAILED;  
+        ESP_LOGE("MAIN", "SPIFFS Mount Failed! System Halted.");
+        // 发生致命错误，挂起(销毁)当前主任务，保留 OLED 错误画面供排查
+        vTaskDelete(NULL); 
     }
-    boot_states[0] = STEP_SUCCESS;     // 设为成功
+    boot_states[0] = STEP_SUCCESS;     
 
-    // 3. 初始化人体红外传感器
+    // [步骤 1] 初始化人体红外传感器
     boot_states[1] = STEP_IN_PROGRESS;
     vTaskDelay(pdMS_TO_TICKS(200));
     HumanIR_Init();
     boot_states[1] = STEP_SUCCESS;
 
-    // 4. 初始化网络服务 (如果这里有阻塞配网，屏幕会一直完美闪烁动画！)
+    // ==========================================
+    // 3. 网络与云平台初始化
+    // ==========================================
+    // [步骤 2] 启动配网、Web 服务及 MQTT 客户端
     boot_states[2] = STEP_IN_PROGRESS;
     vTaskDelay(pdMS_TO_TICKS(200));
     app_wifi_prov_start();
@@ -73,21 +84,32 @@ void app_main(void)
     mqtt_start();
     boot_states[2] = STEP_SUCCESS;
 
-    // 5. 初始化音频模块
+    // ==========================================
+    // 4. 音频系统初始化
+    // ==========================================
+    // [步骤 3] 初始化 I2S 音频功放
     boot_states[3] = STEP_IN_PROGRESS;
     vTaskDelay(pdMS_TO_TICKS(200));
     i2s_init();
-    // 假设 i2s 初始化失败，你也可以像 SPIFFS 那样加上条件判断，这里默认成功
     boot_states[3] = STEP_SUCCESS; 
 
-    // 6. 全部完成，展示完美的“全绿”打勾清单
+    // ==========================================
+    // 5. 自检完成，系统业务拉起
+    // ==========================================
     vTaskDelay(pdMS_TO_TICKS(1000)); 
 
-    // 7. 切换到正常仪表盘界面并启动后台业务任务
+    // 解锁系统安全锁并切换至主看板
     is_system_initialized = true; 
     current_ui_mode = UI_MODE_NORMAL;
 
-    xTaskCreate(pir_audio_task, "pir_audio_task", 8192, NULL, 5, NULL);
-    xTaskCreate(DataReport_Task, "DataReport_Task", 4096, NULL, 5, NULL);
-    xTaskCreate(Led_Task, "Led_Task", 4096, NULL, 4, NULL); // 启动 LED 任务
+    ESP_LOGI("MAIN", "System Initialized Successfully. Starting Business Tasks...");
+
+    // 启动所有后台常驻业务任务
+    xTaskCreate(pir_audio_task,"pir_audio_task",8192, NULL, 5, NULL); // 安防与音频告警任务
+    xTaskCreate(DataReport_Task,"DataReport_Task",4096, NULL, 5, NULL); // MQTT 云端通信任务
+    // xTaskCreate(DHT11Get_Task,"DHT11_Task",2048, NULL, 4, NULL); // 温湿度采集任务 (已补回)
+    xTaskCreate(Led_Task,"Led_Task",4096, NULL, 4, NULL); // WS2812B 幻彩状态灯任务
+    xTaskCreate(Key_Task,"Key_Task",4096, NULL, 4, NULL); // 硬件多按键扫描任务
+    
+    // app_main 执行完毕后，此初始线程将自动被 FreeRTOS 回收，不再占用栈空间
 }
