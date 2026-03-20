@@ -9,6 +9,7 @@
 #include "ble_prov.h"
 #include "web_config.h"
 #include "bsp_oled.h"
+#include "led.h"
 
 static const char *TAG = "MAIN";
 
@@ -88,4 +89,5 @@ void app_main(void)
 
     xTaskCreate(pir_audio_task, "pir_audio_task", 8192, NULL, 5, NULL);
     xTaskCreate(DataReport_Task, "DataReport_Task", 4096, NULL, 5, NULL);
+    xTaskCreate(Led_Task, "Led_Task", 4096, NULL, 4, NULL); // 启动 LED 任务
 }

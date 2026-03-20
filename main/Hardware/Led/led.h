@@ -1,36 +1,17 @@
 #ifndef __LED_H__
 #define __LED_H__
 
-#include "driver/gpio.h"
-#include "driver/ledc.h"
-#include "esp_attr.h"
+#include <stdint.h>
 
-//设置LED引脚
-#define  LED_PIN  48
+// 定义 WS2812B 连接的引脚和灯珠数量
+#define LED_STRIP_GPIO 48
+#define LED_STRIP_LED_NUM 1
 
-/**
- * @brief   LED初始化
- * 
- */
-void Led_Init(void);
+// 基础 API
+void WS2812B_Init(void);
+void WS2812B_SetColor(uint8_t red, uint8_t green, uint8_t blue);
 
-/**
- * @brief       设置LED亮
- * 
- */
-void LedOn(void);
-
-/**
- * @brief       设置LED灭
- * 
- */
-void LedOff(void);
-
-
-
-void Ledc_Init(void);
-void Ledc_cb_Init(void);
-IRAM_ATTR bool ledc_finish_cb(const ledc_cb_param_t *param, void *user_arg);
+// 后台状态指示任务
+void Led_Task(void *pvParameters);
 
 #endif
- 

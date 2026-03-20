@@ -74,7 +74,7 @@ void OLED_Display_Task(void *pvParameters) {
 
         if (current_ui_mode == UI_MODE_BOOT) {
             // 开机自检界面
-            u8g2_DrawUTF8(&u8g2, 24, 11, "- 系统自检中 -");
+            u8g2_DrawUTF8(&u8g2, 24, 11, "- 系统启动中 -");
             u8g2_DrawHLine(&u8g2, 0, 14, 128); 
 
             const char* step_names[4] = {"挂载系统文件", "初始化传感器", "拉起网络服务", "启动音频模块"};
@@ -133,7 +133,7 @@ void OLED_Display_Task(void *pvParameters) {
             if ((xTaskGetTickCount() * portTICK_PERIOD_MS) % 1000 < 500) {
                 u8g2_DrawUTF8(&u8g2, 8, 12, "[!] 连续5次连接失败");
             } else {
-                u8g2_DrawUTF8(&u8g2, 16, 12, "    连续5次连接失败");
+                u8g2_DrawUTF8(&u8g2, 16, 12, "   连续5次连接失败");
             }
             u8g2_DrawHLine(&u8g2, 0, 15, 128); 
 

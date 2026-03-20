@@ -1,83 +1,80 @@
 #include "led.h"
+#include "led_strip.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "bsp_oled.h" // 引入全局状态变量 is_armed 和 is_alarming
 
-// 配置输出寄存器
-#define GPIO_OUTPUT_PIN_SEL (1ULL << LED_PIN)
+static const char *TAG = "WS2812B";
 
-/**
- * @函数说明        LED的初始化
- *
- */
-void Led_Init(void)
-{
-    gpio_config_t gpio_init_struct = {0};
-
-    // 配置IO为通用IO
-    esp_rom_gpio_pad_select_gpio(LED_PIN);
-
-    gpio_init_struct.intr_type = GPIO_INTR_DISABLE;        // 不使用中断
-    gpio_init_struct.mode = GPIO_MODE_OUTPUT;              // 输出模式
-    gpio_init_struct.pull_up_en = GPIO_PULLUP_ENABLE;      // 使能上拉模式
-    gpio_init_struct.pull_down_en = GPIO_PULLDOWN_DISABLE; // 失能下拉模式
-    gpio_init_struct.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;   // 使用GPIO9输出寄存器
-
-    // 将以上参数配置到引脚
-    gpio_config(&gpio_init_struct);
-
-    // 设置引脚输出高电平，默认不让LED亮
-    gpio_set_level(LED_PIN, 1);
-}
+// 定义 LED 灯带的句柄
+static led_strip_handle_t led_strip;
 
 /**
- * @函数说明        设置LED亮
- *
+ * @brief 初始化 WS2812B (使用 RMT 硬件驱动)
  */
-void LedOn(void)
-{
-    gpio_set_level(LED_PIN, 0);
+void WS2812B_Init(void) {
+    ESP_LOGI(TAG, "Initializing WS2812B on GPIO %d", LED_STRIP_GPIO);
+
+    // 👈 完美适配 3.0.3 版本的全新结构体字段和宏定义
+    led_strip_config_t strip_config = {
+        .strip_gpio_num = LED_STRIP_GPIO,
+        .max_leds = LED_STRIP_LED_NUM,
+        .led_model = LED_MODEL_WS2812,
+        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB, // 使用全新的字段名和宏
+    };
+
+    led_strip_rmt_config_t rmt_config = {
+        .resolution_hz = 10 * 1000 * 1000, 
+    };
+
+    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
+    led_strip_clear(led_strip);
 }
 
 /**
- * @函数说明        设置LED灭
- *
+ * @brief 设置这颗灯珠的颜色
+ * @param red 红色亮度 (0-255)
+ * @param green 绿色亮度 (0-255)
+ * @param blue 蓝色亮度 (0-255)
  */
-void LedOff(void)
-{
-    gpio_set_level(LED_PIN, 1);
+void WS2812B_SetColor(uint8_t red, uint8_t green, uint8_t blue) {
+    // 设置第 0 颗灯珠的颜色 (因为我们只有 1 颗灯，索引是 0)
+    led_strip_set_pixel(led_strip, 0, red, green, blue);
+    // 将数据推送到物理灯珠上
+    led_strip_refresh(led_strip);
 }
 
-void Ledc_Init(void)
-{
-    ledc_timer_config_t ledcTim_init_struct = {
-        // 速度模式，低速度模式
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        // 根据应用程序的需求选择 duty 分辨率。
-        .duty_resolution = LEDC_TIMER_12_BIT,
-        // 定时器编号，根据 ESP32 的要求设置。
-        .timer_num = LEDC_TIMER_0,
-        // 设置定时器频率（Hz）。
-        .freq_hz = 5 * 1000, // 5 kHz
-        // 配置 LEDC 定时器的时钟源。
-        .clk_cfg = LEDC_AUTO_CLK, // 时钟源
-        // 如果你想要配置 LEDC 定时器，请将该字段设置为 false。如果你将其设置为 true，定时器将不会被配置，并且 duty_resolution、freq_hz、clk_cfg 字段将被忽略。
-        .deconfigure = false,
-    };
-    ledc_timer_config(&ledcTim_init_struct);
+/**
+ * @brief LED 状态指示后台任务
+ * @details 独立运行，根据系统的全局状态自动改变灯光效果
+ */
+void Led_Task(void *pvParameters) {
+    // 1. 初始化灯带
+    WS2812B_Init();
+    
+    bool flash_toggle = false; // 用于控制红蓝爆闪的切换标志
 
-    ledc_channel_config_t ledcCha_init_struct = {
-        .channel = LEDC_CHANNEL_0,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .timer_sel = LEDC_TIMER_0,
-        .gpio_num = LED_PIN,
-        .duty = 0,
-        .intr_type = LEDC_INTR_DISABLE,
-    };
-    ledc_channel_config(&ledcCha_init_struct);
-}
-
-void Ledc_cb_Init(void)
-{
-    ledc_cbs_t cbs = {
-        .fade_cb = ledc_finish_cb,
-    };
-    ledc_cb_register(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, &cbs, NULL);
+    while (1) {
+        if (is_armed) {
+            if (is_alarming) {
+                // ----- 状态 1：布防且触发警报 (红蓝高频爆闪) -----
+                if (flash_toggle) {
+                    WS2812B_SetColor(255, 0, 0); // 纯红
+                } else {
+                    WS2812B_SetColor(0, 0, 255); // 纯蓝
+                }
+                flash_toggle = !flash_toggle;
+                vTaskDelay(pdMS_TO_TICKS(100)); // 100ms 极速切换
+            } else {
+                // ----- 状态 2：布防但安全 (微弱绿灯长亮，表示系统正在警戒) -----
+                WS2812B_SetColor(0, 10, 0); // 亮度给 10 就够了，太亮会刺眼
+                vTaskDelay(pdMS_TO_TICKS(500)); 
+            }
+        } else {
+            // ----- 状态 3：撤防状态 (彻底关灯) -----
+            WS2812B_SetColor(0, 0, 0);
+            vTaskDelay(pdMS_TO_TICKS(500));
+        }
+    }
 }
